@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig } from 'vite';
+import VueDevTools from 'vite-plugin-vue-devtools'
+
 
 export default defineConfig({
     plugins: [
@@ -13,9 +15,9 @@ export default defineConfig({
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
-                }),
-            ],
+                    weights: [400, 500, 600]
+                })
+            ]
         }),
         inertia(),
         tailwindcss(),
@@ -23,12 +25,22 @@ export default defineConfig({
             template: {
                 transformAssetUrls: {
                     base: null,
-                    includeAbsolute: false,
-                },
-            },
+                    includeAbsolute: false
+                }
+            }
+        }),
+        VueDevTools({
+            appendTo: 'resources/js/app.ts'
         }),
         wayfinder({
-            formVariants: true,
-        }),
+            formVariants: true
+        })
     ],
+    server: {
+        host: '0.0.0.0',
+        port: 5173,
+        ws: {
+            host: 'localhost',
+        },
+    },
 });

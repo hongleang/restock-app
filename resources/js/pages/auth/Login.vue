@@ -23,6 +23,11 @@ defineProps<{
     status?: string;
     canResetPassword: boolean;
 }>();
+
+const defaultCredentials = {
+    email: import.meta.env.VITE_DEFAULT_EMAIL,
+    password: import.meta.env.VITE_DEFAULT_PASSWORD,
+}
 </script>
 
 <template>
@@ -48,6 +53,7 @@ defineProps<{
                     id="email"
                     type="email"
                     name="email"
+                    :default-value="defaultCredentials.email"
                     required
                     autofocus
                     :tabindex="1"
@@ -72,6 +78,7 @@ defineProps<{
                 <PasswordInput
                     id="password"
                     name="password"
+                    :default-value="defaultCredentials.password"
                     required
                     :tabindex="2"
                     autocomplete="current-password"
