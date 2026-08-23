@@ -51,6 +51,11 @@ class User extends Authenticatable
         return $this->hasMany(Shop::class);
     }
 
+    public function currentShop(): ?Shop
+    {
+        return $this->shops()->first();
+    }
+
     public function name(): Attribute
     {
         return Attribute::make(
