@@ -15,11 +15,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory([
+        $admin = User::factory([
             'first_name' => 'John',
             'last_name' => 'Doe',
-            'email' => 'admin@restock.com'
-        ]);
+            'email' => 'admin@restock.com',
+        ])->create();
 
         $this->call([
             ShopSeeder::class,

@@ -18,6 +18,7 @@ class Supplier extends Model
         'email',
         'phone',
         'lead_time_days',
+        'shop_id',
     ];
 
     public function shop(): BelongsTo
