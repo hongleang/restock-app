@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
+import { computed, ref, watch } from 'vue'
 import SupplierController from '@/actions/App/Http/Controllers/SupplierController'
 import Heading from '@/components/Heading.vue'
 import InputError from '@/components/InputError.vue'
+import Pagination from '@/components/Pagination.vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -26,9 +28,19 @@ import { index } from '@/routes/suppliers'
 import type { BreadcrumbItem, Shop, Supplier } from '@/types'
 import { SimplePaginated } from '@/types/pagination'
 
-const { suppliers: suppliersData, shops } = defineProps<{
+type SupplierFilters = {
+  search: string | null
+  shop_id: number | null
+}
+
+const {
+  suppliers: suppliersData,
+  shops,
+  filters,
+} = defineProps<{
   suppliers: SimplePaginated<Supplier>
   shops: Shop[]
+  filters: SupplierFilters
 }>()
 
 defineOptions({
@@ -40,6 +52,32 @@ defineOptions({
 })
 
 const suppliers = computed(() => suppliersData.data)
+
+const search = ref(filters.search ?? '')
+const shopFilter = ref(filters.shop_id ? filters.shop_id.toString() : 'all')
+
+const hasActiveFilters = computed(() => search.value !== '' || shopFilter.value !== 'all')
+
+function applyFilters() {
+  router.get(
+    index.url(),
+    {
+      search: search.value || undefined,
+      shop_id: shopFilter.value !== 'all' ? shopFilter.value : undefined,
+    },
+    { preserveState: true, preserveScroll: true, replace: true },
+  )
+}
+
+const debouncedApplyFilters = useDebounceFn(applyFilters, 300)
+
+watch(search, debouncedApplyFilters)
+watch(shopFilter, applyFilters)
+
+function clearFilters() {
+  search.value = ''
+  shopFilter.value = 'all'
+}
 
 const dialogOpen = ref(false)
 const editing = ref<Supplier | null>(null)
@@ -77,6 +115,37 @@ function destroySupplier(supplier: Supplier) {
         description="Manage who you order stock from"
       />
       <Button @click="openCreate">New supplier</Button>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="grid gap-1.5">
+        <Label for="filter-search">Search</Label>
+        <Input
+          id="filter-search"
+          v-model="search"
+          placeholder="Name, contact or email"
+          class="w-56"
+        />
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-shop">Shop</Label>
+        <Select v-model="shopFilter">
+          <SelectTrigger id="filter-shop" class="w-40">
+            <SelectValue placeholder="All shops" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All shops</SelectItem>
+            <SelectItem v-for="shop in shops" :key="shop.id" :value="shop.id.toString()">
+              {{ shop.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearFilters">
+        Clear filters
+      </Button>
     </div>
 
     <div
@@ -134,11 +203,18 @@ function destroySupplier(supplier: Supplier) {
           </tr>
           <tr v-if="suppliers.length === 0">
             <td colspan="6" class="px-4 py-6 text-center text-muted-foreground">
-              No suppliers yet.
+              {{ hasActiveFilters ? 'No suppliers match your filters.' : 'No suppliers yet.' }}
             </td>
           </tr>
         </tbody>
       </table>
+
+      <Pagination
+        :prev-page-url="suppliersData.prev_page_url"
+        :next-page-url="suppliersData.next_page_url"
+        :from="suppliersData.from"
+        :to="suppliersData.to"
+      />
     </div>
 
     <Dialog v-model:open="dialogOpen">

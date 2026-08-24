@@ -222,3 +222,110 @@ test('a user cannot delete another users stock movement', function () {
 
     $this->assertModelExists($movement);
 });
+
+test('movements can be filtered by product', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $productA = Product::factory()->create(['shop_id' => $shop->id]);
+    $productB = Product::factory()->create(['shop_id' => $shop->id]);
+    $match = StockMovement::factory()->create([
+        'product_id' => $productA->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+    ]);
+    StockMovement::factory()->create([
+        'product_id' => $productB->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('stock-movements.index', ['product_id' => $productA->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('movements.data', 1)
+            ->where('movements.data.0.id', $match->id)
+        );
+});
+
+test('movements can be filtered by type', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    $match = StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Adjustment,
+    ]);
+    StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('stock-movements.index', ['type' => StockMovementType::Adjustment->value]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('movements.data', 1)
+            ->where('movements.data.0.id', $match->id)
+            ->where('filters.type', StockMovementType::Adjustment->value)
+        );
+});
+
+test('movements can be filtered by a date range', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+
+    $inRange = StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+        'created_at' => '2026-06-15',
+    ]);
+    StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+        'created_at' => '2026-01-01',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('stock-movements.index', ['from' => '2026-06-01', 'to' => '2026-06-30']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('movements.data', 1)
+            ->where('movements.data.0.id', $inRange->id)
+        );
+});
+
+test('an invalid date filter is ignored rather than erroring', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('stock-movements.index', ['from' => 'not-a-date']))
+        ->assertOk();
+});
+
+test('movements are paginated', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    StockMovement::factory()->count(20)->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('stock-movements.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('movements.data', 15)
+            ->where('movements.next_page_url', fn ($url) => $url !== null)
+        );
+});

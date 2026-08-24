@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
+import { computed, ref, watch } from 'vue'
 import ProductController from '@/actions/App/Http/Controllers/ProductController'
 import Heading from '@/components/Heading.vue'
 import InputError from '@/components/InputError.vue'
+import Pagination from '@/components/Pagination.vue'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -26,14 +29,26 @@ import { index } from '@/routes/products'
 import type { BreadcrumbItem, Product, Shop, Supplier } from '@/types'
 import { SimplePaginated } from '@/types/pagination'
 
+type ProductFilters = {
+  search: string | null
+  shop_id: number | null
+  category: string | null
+  supplier_id: number | null
+  low_stock: boolean
+}
+
 const {
   products: productsData,
   shops,
   suppliers,
+  categories,
+  filters,
 } = defineProps<{
   products: SimplePaginated<Product>
   shops: Shop[]
   suppliers: Supplier[]
+  categories: string[]
+  filters: ProductFilters
 }>()
 
 defineOptions({
@@ -45,6 +60,48 @@ defineOptions({
 })
 
 const products = computed(() => productsData.data)
+
+const search = ref(filters.search ?? '')
+const shopFilter = ref(filters.shop_id ? filters.shop_id.toString() : 'all')
+const categoryFilter = ref(filters.category ?? 'all')
+const supplierFilter = ref(filters.supplier_id ? filters.supplier_id.toString() : 'all')
+const lowStockOnly = ref(filters.low_stock)
+
+const hasActiveFilters = computed(
+  () =>
+    search.value !== '' ||
+    shopFilter.value !== 'all' ||
+    categoryFilter.value !== 'all' ||
+    supplierFilter.value !== 'all' ||
+    lowStockOnly.value,
+)
+
+function applyFilters() {
+  router.get(
+    index.url(),
+    {
+      search: search.value || undefined,
+      shop_id: shopFilter.value !== 'all' ? shopFilter.value : undefined,
+      category: categoryFilter.value !== 'all' ? categoryFilter.value : undefined,
+      supplier_id: supplierFilter.value !== 'all' ? supplierFilter.value : undefined,
+      low_stock: lowStockOnly.value ? 1 : undefined,
+    },
+    { preserveState: true, preserveScroll: true, replace: true },
+  )
+}
+
+const debouncedApplyFilters = useDebounceFn(applyFilters, 300)
+
+watch(search, debouncedApplyFilters)
+watch([shopFilter, categoryFilter, supplierFilter, lowStockOnly], applyFilters)
+
+function clearFilters() {
+  search.value = ''
+  shopFilter.value = 'all'
+  categoryFilter.value = 'all'
+  supplierFilter.value = 'all'
+  lowStockOnly.value = false
+}
 
 const dialogOpen = ref(false)
 const editing = ref<Product | null>(null)
@@ -87,6 +144,72 @@ function destroyProduct(product: Product) {
         description="Track catalog, pricing and stock levels"
       />
       <Button @click="openCreate">New product</Button>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="grid gap-1.5">
+        <Label for="filter-search">Search</Label>
+        <Input
+          id="filter-search"
+          v-model="search"
+          placeholder="Name or SKU"
+          class="w-48"
+        />
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-shop">Shop</Label>
+        <Select v-model="shopFilter">
+          <SelectTrigger id="filter-shop" class="w-40">
+            <SelectValue placeholder="All shops" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All shops</SelectItem>
+            <SelectItem v-for="shop in shops" :key="shop.id" :value="shop.id.toString()">
+              {{ shop.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-category">Category</Label>
+        <Select v-model="categoryFilter">
+          <SelectTrigger id="filter-category" class="w-40">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem v-for="category in categories" :key="category" :value="category">
+              {{ category }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-supplier">Supplier</Label>
+        <Select v-model="supplierFilter">
+          <SelectTrigger id="filter-supplier" class="w-40">
+            <SelectValue placeholder="All suppliers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All suppliers</SelectItem>
+            <SelectItem v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id.toString()">
+              {{ supplier.first_name }} {{ supplier.last_name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <label class="flex items-center gap-2 pb-2 text-sm">
+        <Checkbox v-model:checked="lowStockOnly" />
+        Low stock only
+      </label>
+
+      <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearFilters">
+        Clear filters
+      </Button>
     </div>
 
     <div
@@ -160,11 +283,18 @@ function destroyProduct(product: Product) {
           </tr>
           <tr v-if="products.length === 0">
             <td colspan="6" class="px-4 py-6 text-center text-muted-foreground">
-              No products yet.
+              {{ hasActiveFilters ? 'No products match your filters.' : 'No products yet.' }}
             </td>
           </tr>
         </tbody>
       </table>
+
+      <Pagination
+        :prev-page-url="productsData.prev_page_url"
+        :next-page-url="productsData.next_page_url"
+        :from="productsData.from"
+        :to="productsData.to"
+      />
     </div>
 
     <Dialog v-model:open="dialogOpen">

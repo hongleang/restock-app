@@ -167,3 +167,56 @@ test('a user cannot delete another users supplier', function () {
 
     $this->assertModelExists($supplier);
 });
+
+test('suppliers can be searched by name, contact or email', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $match = Supplier::factory()->create([
+        'shop_id' => $shop->id,
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+    ]);
+    Supplier::factory()->create([
+        'shop_id' => $shop->id,
+        'first_name' => 'John',
+        'last_name' => 'Smith',
+        'email' => 'john@example.com',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('suppliers.index', ['search' => 'jane']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('suppliers.data', 1)
+            ->where('suppliers.data.0.id', $match->id)
+            ->where('filters.search', 'jane')
+        );
+});
+
+test('suppliers can be filtered by shop', function () {
+    $owner = User::factory()->create();
+    $shopA = Shop::factory()->create(['user_id' => $owner->id]);
+    $shopB = Shop::factory()->create(['user_id' => $owner->id]);
+    $match = Supplier::factory()->create(['shop_id' => $shopA->id]);
+    Supplier::factory()->create(['shop_id' => $shopB->id]);
+
+    $this->actingAs($owner)
+        ->get(route('suppliers.index', ['shop_id' => $shopA->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('suppliers.data', 1)
+            ->where('suppliers.data.0.id', $match->id)
+        );
+});
+
+test('suppliers are paginated', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    Supplier::factory()->count(20)->create(['shop_id' => $shop->id]);
+
+    $this->actingAs($owner)
+        ->get(route('suppliers.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('suppliers.data', 15)
+            ->where('suppliers.next_page_url', fn ($url) => $url !== null)
+        );
+});

@@ -20,20 +20,52 @@ class ProductController extends Controller
         $shops = $request->user()->shops()->get(['id', 'name']);
         $shopIds = $shops->pluck('id');
 
+        $search = trim((string) $request->string('search'));
+        $shopFilter = $request->integer('shop_id') ?: null;
+        $category = trim((string) $request->string('category'));
+        $supplierFilter = $request->integer('supplier_id') ?: null;
+        $lowStock = $request->boolean('low_stock');
+
         $products = Product::query()
             ->whereIn('shop_id', $shopIds)
+            ->when($search !== '', function ($query) use ($search) {
+                $term = '%'.addcslashes($search, '%_').'%';
+
+                $query->where(fn ($query) => $query
+                    ->where('name', 'like', $term)
+                    ->orWhere('sku', 'like', $term));
+            })
+            ->when($shopFilter, fn ($query, $value) => $query->where('shop_id', $value))
+            ->when($category !== '', fn ($query) => $query->where('category', $category))
+            ->when($supplierFilter, fn ($query, $value) => $query->where('supplier_id', $value))
+            ->when($lowStock, fn ($query) => $query->whereColumn('current_stock', '<=', 'reorder_point'))
             ->with(['shop:id,name', 'supplier:id,first_name,last_name'])
             ->latest()
-            ->simplePaginate();
+            ->simplePaginate(15)
+            ->withQueryString();
 
         $suppliers = Supplier::query()
             ->whereIn('shop_id', $shopIds)
             ->get(['id', 'shop_id', 'first_name', 'last_name']);
 
+        $categories = Product::query()
+            ->whereIn('shop_id', $shopIds)
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category');
+
         return Inertia::render('products/Index', [
             'products' => $products,
             'shops' => $shops,
             'suppliers' => $suppliers,
+            'categories' => $categories,
+            'filters' => [
+                'search' => $search !== '' ? $search : null,
+                'shop_id' => $shopFilter,
+                'category' => $category !== '' ? $category : null,
+                'supplier_id' => $supplierFilter,
+                'low_stock' => $lowStock,
+            ],
         ]);
     }
 

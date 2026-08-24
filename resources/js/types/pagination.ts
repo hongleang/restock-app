@@ -3,10 +3,10 @@ export interface SimplePaginated<T> {
   current_page: number
   current_page_url: string
   first_page_url: string
-  from: number
-  next_page_url: string
+  from: number | null
+  next_page_url: string | null
   path: string
   per_page: number
-  prev_page_url: string
-  to: number
+  prev_page_url: string | null
+  to: number | null
 }

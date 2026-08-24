@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import StockMovementController from '@/actions/App/Http/Controllers/StockMovementController'
 import Heading from '@/components/Heading.vue'
 import InputError from '@/components/InputError.vue'
+import Pagination from '@/components/Pagination.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,14 +33,23 @@ import type {
 } from '@/types'
 import { SimplePaginated } from '@/types/pagination'
 
+type StockMovementFilters = {
+  product_id: number | null
+  type: string | null
+  from: string | null
+  to: string | null
+}
+
 const {
   movements: movementsData,
   products,
   types,
+  filters,
 } = defineProps<{
   movements: SimplePaginated<StockMovement>
   products: Product[]
   types: StockMovementTypeOption[]
+  filters: StockMovementFilters
 }>()
 
 defineOptions({
@@ -56,6 +66,41 @@ const badgeVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
   restock: 'default',
   sale: 'secondary',
   adjustment: 'destructive',
+}
+
+const productFilter = ref(filters.product_id ? filters.product_id.toString() : 'all')
+const typeFilter = ref(filters.type ?? 'all')
+const fromFilter = ref(filters.from ?? '')
+const toFilter = ref(filters.to ?? '')
+
+const hasActiveFilters = computed(
+  () =>
+    productFilter.value !== 'all' ||
+    typeFilter.value !== 'all' ||
+    fromFilter.value !== '' ||
+    toFilter.value !== '',
+)
+
+function applyFilters() {
+  router.get(
+    index.url(),
+    {
+      product_id: productFilter.value !== 'all' ? productFilter.value : undefined,
+      type: typeFilter.value !== 'all' ? typeFilter.value : undefined,
+      from: fromFilter.value || undefined,
+      to: toFilter.value || undefined,
+    },
+    { preserveState: true, preserveScroll: true, replace: true },
+  )
+}
+
+watch([productFilter, typeFilter, fromFilter, toFilter], applyFilters)
+
+function clearFilters() {
+  productFilter.value = 'all'
+  typeFilter.value = 'all'
+  fromFilter.value = ''
+  toFilter.value = ''
 }
 
 const dialogOpen = ref(false)
@@ -90,6 +135,52 @@ function destroyMovement(movement: StockMovement) {
         description="History of sales, restocks and adjustments"
       />
       <Button @click="openCreate">New movement</Button>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="grid gap-1.5">
+        <Label for="filter-product">Product</Label>
+        <Select v-model="productFilter">
+          <SelectTrigger id="filter-product" class="w-48">
+            <SelectValue placeholder="All products" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All products</SelectItem>
+            <SelectItem v-for="product in products" :key="product.id" :value="product.id.toString()">
+              {{ product.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-type">Type</Label>
+        <Select v-model="typeFilter">
+          <SelectTrigger id="filter-type" class="w-40">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem v-for="type in types" :key="type.value" :value="type.value">
+              {{ type.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-from">From</Label>
+        <Input id="filter-from" v-model="fromFilter" type="date" class="w-40" />
+      </div>
+
+      <div class="grid gap-1.5">
+        <Label for="filter-to">To</Label>
+        <Input id="filter-to" v-model="toFilter" type="date" class="w-40" />
+      </div>
+
+      <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearFilters">
+        Clear filters
+      </Button>
     </div>
 
     <div
@@ -151,11 +242,18 @@ function destroyMovement(movement: StockMovement) {
           </tr>
           <tr v-if="movements.length === 0">
             <td colspan="6" class="px-4 py-6 text-center text-muted-foreground">
-              No stock movements yet.
+              {{ hasActiveFilters ? 'No movements match your filters.' : 'No stock movements yet.' }}
             </td>
           </tr>
         </tbody>
       </table>
+
+      <Pagination
+        :prev-page-url="movementsData.prev_page_url"
+        :next-page-url="movementsData.next_page_url"
+        :from="movementsData.from"
+        :to="movementsData.to"
+      />
     </div>
 
     <Dialog v-model:open="dialogOpen">

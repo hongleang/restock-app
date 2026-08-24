@@ -213,3 +213,88 @@ test('a user cannot delete another users product', function () {
 
     $this->assertModelExists($product);
 });
+
+test('products can be searched by name or sku', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $match = Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Sparkling Water', 'sku' => 'BEV-1']);
+    Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Chocolate Bar', 'sku' => 'SNK-1']);
+
+    $this->actingAs($owner)
+        ->get(route('products.index', ['search' => 'sparkling']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.id', $match->id)
+            ->where('filters.search', 'sparkling')
+        );
+
+    $this->actingAs($owner)
+        ->get(route('products.index', ['search' => 'BEV-1']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.id', $match->id)
+        );
+});
+
+test('products can be filtered by category and supplier', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $supplierA = Supplier::factory()->create(['shop_id' => $shop->id]);
+    $supplierB = Supplier::factory()->create(['shop_id' => $shop->id]);
+
+    $match = Product::factory()->create([
+        'shop_id' => $shop->id,
+        'category' => 'Beverages',
+        'supplier_id' => $supplierA->id,
+    ]);
+    Product::factory()->create([
+        'shop_id' => $shop->id,
+        'category' => 'Snacks',
+        'supplier_id' => $supplierB->id,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('products.index', ['category' => 'Beverages']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.id', $match->id)
+        );
+
+    $this->actingAs($owner)
+        ->get(route('products.index', ['supplier_id' => $supplierA->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.id', $match->id)
+        );
+});
+
+test('products can be filtered to only show low stock items', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $low = Product::factory()->create(['shop_id' => $shop->id, 'current_stock' => 2, 'reorder_point' => 10]);
+    Product::factory()->create(['shop_id' => $shop->id, 'current_stock' => 50, 'reorder_point' => 10]);
+
+    $this->actingAs($owner)
+        ->get(route('products.index', ['low_stock' => 1]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.id', $low->id)
+            ->where('filters.low_stock', true)
+        );
+});
+
+test('products are paginated', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+
+    foreach (range(1, 20) as $i) {
+        Product::factory()->create(['shop_id' => $shop->id, 'sku' => "SKU-{$i}"]);
+    }
+
+    $this->actingAs($owner)
+        ->get(route('products.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('products.data', 15)
+            ->where('products.next_page_url', fn ($url) => $url !== null)
+        );
+});
