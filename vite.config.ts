@@ -20,6 +20,9 @@ export default defineConfig({
     }),
     inertia(),
     tailwindcss(),
+    VueDevTools({
+      appendTo: 'resources/js/app.ts',
+    }),
     vue({
       template: {
         transformAssetUrls: {
@@ -28,21 +31,8 @@ export default defineConfig({
         },
       },
     }),
-    VueDevTools({
-      appendTo: 'resources/js/app.ts',
-    }),
     wayfinder({
       formVariants: true,
     }),
   ],
-  server: {
-    hmr: {
-      host: 'localhost',
-    },
-    host: '0.0.0.0',
-    port: 5173,
-    watch: {
-      usePolling: true,
-    }
-  },
 })
