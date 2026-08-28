@@ -14,6 +14,7 @@ return new class extends Migration
             $table->id();
             $table->string('type');
             $table->text('note')->nullable();
+            $table->integer('quantity');
             $table->foreignIdFor(Product::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(User::class)->nullable()->constrained()->nullOnDelete();
 

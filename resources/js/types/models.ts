@@ -37,6 +37,7 @@ export type StockMovementType = 'sale' | 'restock' | 'adjustment';
 export type StockMovement = {
     id: number;
     product_id: number;
+    quantity: number;
     user_id: number | null;
     type: StockMovementType;
     note: string | null;

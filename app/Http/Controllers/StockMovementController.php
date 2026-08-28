@@ -19,7 +19,8 @@ class StockMovementController extends Controller
     #[Authorize('view-any', StockMovement::class)]
     public function index(Request $request): Response
     {
-        $shopIds = $request->user()->shops()->pluck('id');
+        $shops = $request->user()->shops()->get(['id', 'name']);
+        $shopIds = $shops->pluck('id');
 
         $productFilter = $request->integer('product_id') ?: null;
         $typeFilter = StockMovementType::tryFrom((string) $request->string('type'));
@@ -50,6 +51,7 @@ class StockMovementController extends Controller
             'movements' => $movements,
             'products' => $products,
             'types' => $types,
+            'shops' => $shops,
             'filters' => [
                 'product_id' => $productFilter,
                 'type' => $typeFilter?->value,
@@ -64,6 +66,7 @@ class StockMovementController extends Controller
         StockMovement::create([
             ...$request->validated(),
             'user_id' => $request->user()->id,
+            'quantity' => 1,
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Stock movement recorded.')]);

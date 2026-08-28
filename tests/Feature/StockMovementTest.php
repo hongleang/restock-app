@@ -5,6 +5,7 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Models\StockMovement;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected to the login page', function () {
@@ -328,4 +329,124 @@ test('movements are paginated', function () {
             ->has('movements.data', 15)
             ->where('movements.next_page_url', fn ($url) => $url !== null)
         );
+});
+
+test('guests cannot import stock movements', function () {
+    $this->post(route('stock-movements.import'))->assertRedirect(route('login'));
+});
+
+test('a csv of stock movements can be imported', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $productA = Product::factory()->create(['shop_id' => $shop->id, 'sku' => 'BEV-1']);
+    $productB = Product::factory()->create(['shop_id' => $shop->id, 'sku' => 'SNK-1']);
+
+    $csv = <<<'CSV'
+    sku,type,quantity,note
+    BEV-1,sale,1,Sold to walk-in customer
+    SNK-1,restock,1,Received shipment
+    CSV;
+
+    $file = UploadedFile::fake()->createWithContent('movements.csv', $csv);
+
+    $response = $this->actingAs($owner)->post(route('stock-movements.import'), [
+        'shop_id' => $shop->id,
+        'file' => $file,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('stock-movements.index'));
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $productA->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale->value,
+        'note' => 'Sold to walk-in customer',
+    ]);
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $productB->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Restock->value,
+        'note' => 'Received shipment',
+    ]);
+});
+
+test('csv import is scoped to the selected shop and rejects another users shop', function () {
+    $owner = User::factory()->create();
+    Shop::factory()->create(['user_id' => $owner->id]);
+
+    $other = User::factory()->create();
+    $otherShop = Shop::factory()->create(['user_id' => $other->id]);
+
+    $file = UploadedFile::fake()->createWithContent('movements.csv', "sku,type,quantity\nANY,sale,1");
+
+    $this->actingAs($owner)
+        ->post(route('stock-movements.import'), [
+            'shop_id' => $otherShop->id,
+            'file' => $file,
+        ])
+        ->assertSessionHasErrors('shop_id');
+});
+
+test('csv import requires sku and type columns', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+
+    $file = UploadedFile::fake()->createWithContent('movements.csv', "name,quantity\nWidget,5");
+
+    $this->actingAs($owner)
+        ->post(route('stock-movements.import'), [
+            'shop_id' => $shop->id,
+            'file' => $file,
+        ])
+        ->assertSessionHasErrors('file');
+
+    $this->assertDatabaseCount('stock_movements', 0);
+});
+
+test('rows with an unknown sku or invalid type are skipped without failing the import', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id, 'sku' => 'BEV-1']);
+
+    $csv = <<<'CSV'
+    sku,type,quantity
+    BEV-1,sale,1
+    UNKNOWN-SKU,sale,1
+    BEV-1,not-a-type,1
+    CSV;
+
+    $file = UploadedFile::fake()->createWithContent('movements.csv', $csv);
+
+    $this->actingAs($owner)
+        ->post(route('stock-movements.import'), [
+            'shop_id' => $shop->id,
+            'file' => $file,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(StockMovement::query()->where('product_id', $product->id)->count())->toBe(1);
+});
+
+test('the optional date column backdates imported movements', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id, 'sku' => 'BEV-1']);
+
+    $csv = <<<'CSV'
+    sku,type,quantity,date
+    BEV-1,restock,1,2026-01-15
+    CSV;
+
+    $file = UploadedFile::fake()->createWithContent('movements.csv', $csv);
+
+    $this->actingAs($owner)->post(route('stock-movements.import'), [
+        'shop_id' => $shop->id,
+        'file' => $file,
+    ]);
+
+    $movement = StockMovement::query()->where('product_id', $product->id)->first();
+
+    expect($movement->created_at->toDateString())->toBe('2026-01-15');
 });

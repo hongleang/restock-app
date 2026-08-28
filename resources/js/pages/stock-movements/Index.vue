@@ -24,10 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { index } from '@/routes/stock-movements'
+import {
+  index,
+  importMethod as importStockMovements,
+} from '@/routes/stock-movements'
 import type {
   BreadcrumbItem,
   Product,
+  Shop,
   StockMovement,
   StockMovementTypeOption,
 } from '@/types'
@@ -44,11 +48,13 @@ const {
   movements: movementsData,
   products,
   types,
+  shops,
   filters,
 } = defineProps<{
   movements: SimplePaginated<StockMovement>
   products: Product[]
   types: StockMovementTypeOption[]
+  shops: Shop[]
   filters: StockMovementFilters
 }>()
 
@@ -68,7 +74,9 @@ const badgeVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
   adjustment: 'destructive',
 }
 
-const productFilter = ref(filters.product_id ? filters.product_id.toString() : 'all')
+const productFilter = ref(
+  filters.product_id ? filters.product_id.toString() : 'all',
+)
 const typeFilter = ref(filters.type ?? 'all')
 const fromFilter = ref(filters.from ?? '')
 const toFilter = ref(filters.to ?? '')
@@ -85,7 +93,8 @@ function applyFilters() {
   router.get(
     index.url(),
     {
-      product_id: productFilter.value !== 'all' ? productFilter.value : undefined,
+      product_id:
+        productFilter.value !== 'all' ? productFilter.value : undefined,
       type: typeFilter.value !== 'all' ? typeFilter.value : undefined,
       from: fromFilter.value || undefined,
       to: toFilter.value || undefined,
@@ -105,6 +114,7 @@ function clearFilters() {
 
 const dialogOpen = ref(false)
 const editing = ref<StockMovement | null>(null)
+const importDialogOpen = ref(false)
 
 function openCreate() {
   editing.value = null
@@ -134,7 +144,12 @@ function destroyMovement(movement: StockMovement) {
         title="Stock movements"
         description="History of sales, restocks and adjustments"
       />
-      <Button @click="openCreate">New movement</Button>
+      <div class="flex gap-2">
+        <Button variant="outline" @click="importDialogOpen = true"
+          >Import CSV</Button
+        >
+        <Button @click="openCreate">New movement</Button>
+      </div>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
@@ -146,7 +161,11 @@ function destroyMovement(movement: StockMovement) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All products</SelectItem>
-            <SelectItem v-for="product in products" :key="product.id" :value="product.id.toString()">
+            <SelectItem
+              v-for="product in products"
+              :key="product.id"
+              :value="product.id.toString()"
+            >
               {{ product.name }}
             </SelectItem>
           </SelectContent>
@@ -161,7 +180,11 @@ function destroyMovement(movement: StockMovement) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All types</SelectItem>
-            <SelectItem v-for="type in types" :key="type.value" :value="type.value">
+            <SelectItem
+              v-for="type in types"
+              :key="type.value"
+              :value="type.value"
+            >
               {{ type.label }}
             </SelectItem>
           </SelectContent>
@@ -178,7 +201,12 @@ function destroyMovement(movement: StockMovement) {
         <Input id="filter-to" v-model="toFilter" type="date" class="w-40" />
       </div>
 
-      <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearFilters">
+      <Button
+        v-if="hasActiveFilters"
+        variant="ghost"
+        size="sm"
+        @click="clearFilters"
+      >
         Clear filters
       </Button>
     </div>
@@ -211,6 +239,7 @@ function destroyMovement(movement: StockMovement) {
               {{ new Date(movement.created_at).toLocaleString() }}
             </td>
             <td class="px-4 py-3 font-medium">{{ movement.product?.name }}</td>
+            <td class="px-4 py-3">{{ movement.quantity }}</td>
             <td class="px-4 py-3">
               <Badge :variant="badgeVariant[movement.type]">{{
                 movement.type
@@ -242,7 +271,11 @@ function destroyMovement(movement: StockMovement) {
           </tr>
           <tr v-if="movements.length === 0">
             <td colspan="6" class="px-4 py-6 text-center text-muted-foreground">
-              {{ hasActiveFilters ? 'No movements match your filters.' : 'No stock movements yet.' }}
+              {{
+                hasActiveFilters
+                  ? 'No movements match your filters.'
+                  : 'No stock movements yet.'
+              }}
             </td>
           </tr>
         </tbody>
@@ -336,6 +369,71 @@ function destroyMovement(movement: StockMovement) {
           <DialogFooter>
             <Button type="submit" :disabled="processing">
               {{ editing ? 'Save changes' : 'Record movement' }}
+            </Button>
+          </DialogFooter>
+        </Form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="importDialogOpen">
+      <DialogContent>
+        <Form
+          v-bind="importStockMovements.form()"
+          class="space-y-4"
+          reset-on-success
+          @success="importDialogOpen = false"
+          v-slot="{ errors, processing }"
+        >
+          <DialogHeader>
+            <DialogTitle>Import stock movements</DialogTitle>
+          </DialogHeader>
+
+          <div class="grid gap-2">
+            <Label for="import-shop_id">Shop</Label>
+            <Select name="shop_id" :default-value="shops[0]?.id?.toString()">
+              <SelectTrigger id="import-shop_id" class="w-full">
+                <SelectValue placeholder="Select a shop" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="shop in shops"
+                  :key="shop.id"
+                  :value="shop.id.toString()"
+                >
+                  {{ shop.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="grid gap-2">
+            <Label for="import-file">CSV file</Label>
+            <input
+              id="import-file"
+              type="file"
+              name="file"
+              accept=".csv,text/csv"
+              required
+              class="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none file:mr-3 file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm"
+            />
+            <p class="text-xs text-muted-foreground">
+              Columns: <code>sku</code>, <code>type</code> (sale, restock or
+              adjustment) — required. <code>note</code> and <code>date</code>
+              are optional. Products are matched by SKU within the selected
+              shop.
+            </p>
+            <span
+              v-if="errors"
+              v-for="err in errors"
+              class="text-sm text-red-600"
+            >
+              {{ err }}
+            </span>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" :disabled="processing">
+              {{ processing ? 'Importing…' : 'Import' }}
             </Button>
           </DialogFooter>
         </Form>

@@ -16,6 +16,7 @@ class StockMovementFactory extends Factory
         return [
             'type' => $this->faker->word(),
             'note' => $this->faker->word(),
+            'quantity' => $this->faker->randomNumber(),
             'product_id' => Product::factory(),
             'user_id' => User::factory(),
         ];
