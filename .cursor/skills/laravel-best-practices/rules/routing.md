@@ -25,7 +25,7 @@ public function show(Post $post)
 Enforce parent-child relationships automatically.
 
 ```php
-Route::get('/users/{user}/posts/{post}', function (User $user, Post $post) {
+Route::get('/products/{user}/posts/{post}', function (User $user, Post $post) {
     // $post is automatically scoped to $user
 })->scopeBindings();
 ```

@@ -12,7 +12,7 @@ test('registration screen can be rendered', function () {
     $response->assertOk();
 });
 
-test('new users can register', function () {
+test('new products can register', function () {
     $response = $this->post(route('register.store'), [
         'first_name' => 'John',
         'last_name' => 'John',

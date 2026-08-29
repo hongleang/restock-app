@@ -24,6 +24,7 @@ class UpdateStockMovementRequest extends FormRequest
         return [
             'type' => ['required', Rule::enum(StockMovementType::class)],
             'note' => ['nullable', 'string', 'max:1000'],
+            'quantity' => ['required', 'integer'],
         ];
     }
 }

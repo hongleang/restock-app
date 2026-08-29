@@ -3,10 +3,10 @@ import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 
 defineProps<{
-  prevPageUrl: string | null
-  nextPageUrl: string | null
-  from: number | null
-  to: number | null
+  prevPageUrl: string | null | undefined
+  nextPageUrl: string | null | undefined
+  from: number | null | undefined
+  to: number | null | undefined
 }>()
 </script>
 

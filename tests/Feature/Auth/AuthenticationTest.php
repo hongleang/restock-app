@@ -10,7 +10,7 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
-test('users can authenticate using the login screen', function () {
+test('products can authenticate using the login screen', function () {
     $user = User::factory()->create();
 
     $response = $this->post(route('login.store'), [
@@ -22,7 +22,7 @@ test('users can authenticate using the login screen', function () {
     $response->assertRedirect(route('dashboard', absolute: false));
 });
 
-test('users with two factor enabled are redirected to two factor challenge', function () {
+test('products with two factor enabled are redirected to two factor challenge', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 
     Features::twoFactorAuthentication([
@@ -42,7 +42,7 @@ test('users with two factor enabled are redirected to two factor challenge', fun
     $this->assertGuest();
 });
 
-test('users can not authenticate with invalid password', function () {
+test('products can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
     $this->post(route('login.store'), [
@@ -53,7 +53,7 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
-test('users can logout', function () {
+test('products can logout', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->post(route('logout'));
@@ -63,7 +63,7 @@ test('users can logout', function () {
     $this->assertGuest();
 });
 
-test('users are rate limited', function () {
+test('products are rate limited', function () {
     $user = User::factory()->create();
 
     RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);

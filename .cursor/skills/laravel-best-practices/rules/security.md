@@ -63,7 +63,7 @@ Always use parameter binding. Never interpolate user input into queries.
 
 Incorrect:
 ```php
-DB::select("SELECT * FROM users WHERE name = '{$request->name}'");
+DB::select("SELECT * FROM products WHERE name = '{$request->name}'");
 ```
 
 Correct:

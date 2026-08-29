@@ -1,33 +1,13 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3'
+import { Head } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import StockMovementController from '@/actions/App/Http/Controllers/StockMovementController'
 import Heading from '@/components/Heading.vue'
-import InputError from '@/components/InputError.vue'
 import Pagination from '@/components/Pagination.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  index,
-  importMethod as importStockMovements,
-} from '@/routes/stock-movements'
+import { index } from '@/routes/stock-movements'
 import type {
   BreadcrumbItem,
   Product,
@@ -35,14 +15,12 @@ import type {
   StockMovement,
   StockMovementTypeOption,
 } from '@/types'
-import { SimplePaginated } from '@/types/pagination'
-
-type StockMovementFilters = {
-  product_id: number | null
-  type: string | null
-  from: string | null
-  to: string | null
-}
+import type { SimplePaginated } from '@/types/pagination'
+import StockMovementFilter, {
+  type StockMovementFilterProps,
+} from '@/components/stock-movements/StockMovementFilter.vue'
+import StockMovementDialog from '@/components/stock-movements/StockMovementDialog.vue'
+import StockMovementImportDialog from '@/components/stock-movements/StockMovementImportDialog.vue'
 
 const {
   movements: movementsData,
@@ -55,7 +33,7 @@ const {
   products: Product[]
   types: StockMovementTypeOption[]
   shops: Shop[]
-  filters: StockMovementFilters
+  filters: StockMovementFilterProps
 }>()
 
 defineOptions({
@@ -74,46 +52,9 @@ const badgeVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
   adjustment: 'destructive',
 }
 
-const productFilter = ref(
-  filters.product_id ? filters.product_id.toString() : 'all',
-)
-const typeFilter = ref(filters.type ?? 'all')
-const fromFilter = ref(filters.from ?? '')
-const toFilter = ref(filters.to ?? '')
-
-const hasActiveFilters = computed(
-  () =>
-    productFilter.value !== 'all' ||
-    typeFilter.value !== 'all' ||
-    fromFilter.value !== '' ||
-    toFilter.value !== '',
-)
-
-function applyFilters() {
-  router.get(
-    index.url(),
-    {
-      product_id:
-        productFilter.value !== 'all' ? productFilter.value : undefined,
-      type: typeFilter.value !== 'all' ? typeFilter.value : undefined,
-      from: fromFilter.value || undefined,
-      to: toFilter.value || undefined,
-    },
-    { preserveState: true, preserveScroll: true, replace: true },
-  )
-}
-
-watch([productFilter, typeFilter, fromFilter, toFilter], applyFilters)
-
-function clearFilters() {
-  productFilter.value = 'all'
-  typeFilter.value = 'all'
-  fromFilter.value = ''
-  toFilter.value = ''
-}
-
 const dialogOpen = ref(false)
 const editing = ref<StockMovement | null>(null)
+
 const importDialogOpen = ref(false)
 
 function openCreate() {
@@ -145,71 +86,19 @@ function destroyMovement(movement: StockMovement) {
         description="History of sales, restocks and adjustments"
       />
       <div class="flex gap-2">
-        <Button variant="outline" @click="importDialogOpen = true"
-          >Import CSV</Button
-        >
+        <Button variant="outline" @click="importDialogOpen = true">
+          Import CSV
+        </Button>
         <Button @click="openCreate">New movement</Button>
       </div>
     </div>
 
-    <div class="flex flex-wrap items-end gap-3">
-      <div class="grid gap-1.5">
-        <Label for="filter-product">Product</Label>
-        <Select v-model="productFilter">
-          <SelectTrigger id="filter-product" class="w-48">
-            <SelectValue placeholder="All products" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All products</SelectItem>
-            <SelectItem
-              v-for="product in products"
-              :key="product.id"
-              :value="product.id.toString()"
-            >
-              {{ product.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div class="grid gap-1.5">
-        <Label for="filter-type">Type</Label>
-        <Select v-model="typeFilter">
-          <SelectTrigger id="filter-type" class="w-40">
-            <SelectValue placeholder="All types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem
-              v-for="type in types"
-              :key="type.value"
-              :value="type.value"
-            >
-              {{ type.label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div class="grid gap-1.5">
-        <Label for="filter-from">From</Label>
-        <Input id="filter-from" v-model="fromFilter" type="date" class="w-40" />
-      </div>
-
-      <div class="grid gap-1.5">
-        <Label for="filter-to">To</Label>
-        <Input id="filter-to" v-model="toFilter" type="date" class="w-40" />
-      </div>
-
-      <Button
-        v-if="hasActiveFilters"
-        variant="ghost"
-        size="sm"
-        @click="clearFilters"
-      >
-        Clear filters
-      </Button>
-    </div>
+    <StockMovementFilter
+      :filters="filters"
+      :products="products"
+      :types="types"
+      :shops="shops"
+    />
 
     <div
       class="overflow-x-auto rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
@@ -221,6 +110,7 @@ function destroyMovement(movement: StockMovement) {
           <tr>
             <th class="px-4 py-3 font-medium">Date</th>
             <th class="px-4 py-3 font-medium">Product</th>
+            <th class="px-4 py-3 font-medium">Quantity</th>
             <th class="px-4 py-3 font-medium">Type</th>
             <th class="px-4 py-3 font-medium">Note</th>
             <th class="px-4 py-3 font-medium">By</th>
@@ -241,19 +131,15 @@ function destroyMovement(movement: StockMovement) {
             <td class="px-4 py-3 font-medium">{{ movement.product?.name }}</td>
             <td class="px-4 py-3">{{ movement.quantity }}</td>
             <td class="px-4 py-3">
-              <Badge :variant="badgeVariant[movement.type]">{{
-                movement.type
-              }}</Badge>
+              <Badge :variant="badgeVariant[movement.type]">
+                {{ movement.type_label }}
+              </Badge>
             </td>
             <td class="px-4 py-3 text-muted-foreground">
               {{ movement.note ?? '—' }}
             </td>
             <td class="px-4 py-3">
-              {{
-                movement.user
-                  ? `${movement.user.first_name} ${movement.user.last_name}`
-                  : 'System'
-              }}
+              {{ movement.user ? movement.user?.name : 'System' }}
             </td>
             <td class="px-4 py-3 text-right">
               <Button variant="ghost" size="sm" @click="openEdit(movement)"
@@ -271,173 +157,28 @@ function destroyMovement(movement: StockMovement) {
           </tr>
           <tr v-if="movements.length === 0">
             <td colspan="6" class="px-4 py-6 text-center text-muted-foreground">
-              {{
-                hasActiveFilters
-                  ? 'No movements match your filters.'
-                  : 'No stock movements yet.'
-              }}
+              No Stocks found.
             </td>
           </tr>
         </tbody>
       </table>
 
       <Pagination
-        :prev-page-url="movementsData.prev_page_url"
-        :next-page-url="movementsData.next_page_url"
-        :from="movementsData.from"
-        :to="movementsData.to"
+        :prev-page-url="movementsData.links.prev"
+        :next-page-url="movementsData.links.next"
+        :from="movementsData.meta.from"
+        :to="movementsData.meta.to"
       />
     </div>
 
-    <Dialog v-model:open="dialogOpen">
-      <DialogContent>
-        <Form
-          :key="editing?.id ?? 'new'"
-          v-bind="
-            editing
-              ? StockMovementController.update.form(editing.id)
-              : StockMovementController.store.form()
-          "
-          class="space-y-4"
-          @success="dialogOpen = false"
-          v-slot="{ errors, processing }"
-        >
-          <DialogHeader>
-            <DialogTitle>{{
-              editing ? 'Edit stock movement' : 'New stock movement'
-            }}</DialogTitle>
-          </DialogHeader>
+    <StockMovementImportDialog v-model:open="importDialogOpen" :shops="shops" />
 
-          <div v-if="!editing" class="grid gap-2">
-            <Label for="product_id">Product</Label>
-            <Select name="product_id">
-              <SelectTrigger id="product_id" class="w-full">
-                <SelectValue placeholder="Select a product" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="product in products"
-                  :key="product.id"
-                  :value="product.id.toString()"
-                >
-                  {{ product.name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <InputError :message="errors.product_id" />
-          </div>
-          <div v-else class="grid gap-2">
-            <Label>Product</Label>
-            <p class="text-sm text-muted-foreground">
-              {{ editing.product?.name }}
-            </p>
-          </div>
-
-          <div class="grid gap-2">
-            <Label for="type">Type</Label>
-            <Select
-              name="type"
-              :default-value="editing?.type ?? types[0]?.value"
-            >
-              <SelectTrigger id="type" class="w-full">
-                <SelectValue placeholder="Select a type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="type in types"
-                  :key="type.value"
-                  :value="type.value"
-                >
-                  {{ type.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <InputError :message="errors.type" />
-          </div>
-
-          <div class="grid gap-2">
-            <Label for="note">Note</Label>
-            <Input
-              id="note"
-              name="note"
-              :default-value="editing?.note ?? ''"
-              placeholder="Optional"
-            />
-            <InputError :message="errors.note" />
-          </div>
-
-          <DialogFooter>
-            <Button type="submit" :disabled="processing">
-              {{ editing ? 'Save changes' : 'Record movement' }}
-            </Button>
-          </DialogFooter>
-        </Form>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog v-model:open="importDialogOpen">
-      <DialogContent>
-        <Form
-          v-bind="importStockMovements.form()"
-          class="space-y-4"
-          reset-on-success
-          @success="importDialogOpen = false"
-          v-slot="{ errors, processing }"
-        >
-          <DialogHeader>
-            <DialogTitle>Import stock movements</DialogTitle>
-          </DialogHeader>
-
-          <div class="grid gap-2">
-            <Label for="import-shop_id">Shop</Label>
-            <Select name="shop_id" :default-value="shops[0]?.id?.toString()">
-              <SelectTrigger id="import-shop_id" class="w-full">
-                <SelectValue placeholder="Select a shop" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="shop in shops"
-                  :key="shop.id"
-                  :value="shop.id.toString()"
-                >
-                  {{ shop.name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="grid gap-2">
-            <Label for="import-file">CSV file</Label>
-            <input
-              id="import-file"
-              type="file"
-              name="file"
-              accept=".csv,text/csv"
-              required
-              class="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none file:mr-3 file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm"
-            />
-            <p class="text-xs text-muted-foreground">
-              Columns: <code>sku</code>, <code>type</code> (sale, restock or
-              adjustment) — required. <code>note</code> and <code>date</code>
-              are optional. Products are matched by SKU within the selected
-              shop.
-            </p>
-            <span
-              v-if="errors"
-              v-for="err in errors"
-              class="text-sm text-red-600"
-            >
-              {{ err }}
-            </span>
-          </div>
-
-          <DialogFooter>
-            <Button type="submit" :disabled="processing">
-              {{ processing ? 'Importing…' : 'Import' }}
-            </Button>
-          </DialogFooter>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <StockMovementDialog
+      v-model:open="dialogOpen"
+      :editing="editing"
+      :products="products"
+      :types="types"
+      :shops="shops"
+    />
   </div>
 </template>

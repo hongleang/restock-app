@@ -10,7 +10,7 @@ test('guests are redirected to the login page', function () {
     $this->get(route('products.index'))->assertRedirect(route('login'));
 });
 
-test('users without a shop cannot view products', function () {
+test('products without a shop cannot view products', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -18,7 +18,7 @@ test('users without a shop cannot view products', function () {
         ->assertForbidden();
 });
 
-test('products index only shows the authenticated users own products', function () {
+test('products index only shows the authenticated products own products', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Owned Widget']);
@@ -37,7 +37,7 @@ test('products index only shows the authenticated users own products', function 
         );
 });
 
-test('a product can be created for the users own shop', function () {
+test('a product can be created for the products own shop', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $supplier = Supplier::factory()->create(['shop_id' => $shop->id]);
@@ -67,7 +67,7 @@ test('a product can be created for the users own shop', function () {
     ]);
 });
 
-test('a product cannot be created for another users shop', function () {
+test('a product cannot be created for another products shop', function () {
     $owner = User::factory()->create();
     Shop::factory()->create(['user_id' => $owner->id]);
 
@@ -161,7 +161,7 @@ test('a product owner can update their product', function () {
     expect($product->fresh()->name)->toBe('New name');
 });
 
-test('a user cannot update another users product', function () {
+test('a user cannot update another products product', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Original name']);
@@ -199,7 +199,7 @@ test('a product owner can delete their product', function () {
     $this->assertModelMissing($product);
 });
 
-test('a user cannot delete another users product', function () {
+test('a user cannot delete another products product', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -261,7 +261,7 @@ test('products can be filtered by category and supplier', function () {
         );
 
     $this->actingAs($owner)
-        ->get(route('products.index', ['supplier_id' => $supplierA->id]))
+        ->get(route('products.index', ['supplier' => $supplierA->id]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 1)
             ->where('products.data.0.id', $match->id)
@@ -295,6 +295,6 @@ test('products are paginated', function () {
         ->get(route('products.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('products.data', 15)
-            ->where('products.next_page_url', fn ($url) => $url !== null)
+            ->where('products.links.next', fn ($url) => $url !== null)
         );
 });

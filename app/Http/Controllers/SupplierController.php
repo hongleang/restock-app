@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSupplierRequest;
 use App\Http\Requests\UpdateSupplierRequest;
+use App\Http\Resources\SupplierResource;
 use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,19 +21,11 @@ class SupplierController extends Controller
         $shopIds = $shops->pluck('id');
 
         $search = trim((string) $request->string('search'));
-        $shopFilter = $request->integer('shop_id') ?: null;
+        $shopFilter = $request->integer('shop') ?: null;
 
         $suppliers = Supplier::query()
             ->whereIn('shop_id', $shopIds)
-            ->when($search !== '', function ($query) use ($search) {
-                $term = '%'.addcslashes($search, '%_').'%';
-
-                $query->where(fn ($query) => $query
-                    ->where('first_name', 'like', $term)
-                    ->orWhere('last_name', 'like', $term)
-                    ->orWhere('contact_name', 'like', $term)
-                    ->orWhere('email', 'like', $term));
-            })
+            ->searchBy($search, ['first_name', 'last_name', 'email', 'phone'])
             ->when($shopFilter, fn ($query, $value) => $query->where('shop_id', $value))
             ->with('shop:id,name')
             ->latest()
@@ -40,7 +33,7 @@ class SupplierController extends Controller
             ->withQueryString();
 
         return Inertia::render('suppliers/Index', [
-            'suppliers' => $suppliers,
+            'suppliers' => SupplierResource::collection($suppliers),
             'shops' => $shops,
             'filters' => [
                 'search' => $search !== '' ? $search : null,

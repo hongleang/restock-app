@@ -129,9 +129,9 @@ Never use string literals for table names in raw queries, joins, or subqueries. 
 
 Incorrect:
 ```php
-DB::table('users')->where('active', true)->get();
+DB::table('products')->where('active', true)->get();
 
-$query->join('companies', 'companies.id', '=', 'users.company_id');
+$query->join('companies', 'companies.id', '=', 'products.company_id');
 
 DB::select('SELECT * FROM orders WHERE status = ?', ['pending']);
 ```

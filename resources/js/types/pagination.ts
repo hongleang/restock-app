@@ -1,12 +1,17 @@
 export interface SimplePaginated<T> {
   data: T[]
-  current_page: number
-  current_page_url: string
-  first_page_url: string
-  from: number | null
-  next_page_url: string | null
-  path: string
-  per_page: number
-  prev_page_url: string | null
-  to: number | null
+  links: {
+    first: string
+    last: string
+    prev: string | null
+    next: string | null
+  }
+  meta: {
+    current_page: number
+    from: number
+    last_page: number
+    path: string
+    per_page: number
+    to: number
+  }
 }

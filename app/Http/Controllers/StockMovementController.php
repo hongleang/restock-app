@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\StockMovementType;
 use App\Http\Requests\StoreStockMovementRequest;
 use App\Http\Requests\UpdateStockMovementRequest;
+use App\Http\Resources\StockMovementResource;
 use App\Models\Product;
 use App\Models\StockMovement;
 use Illuminate\Http\RedirectResponse;
@@ -48,7 +49,7 @@ class StockMovementController extends Controller
         );
 
         return Inertia::render('stock-movements/Index', [
-            'movements' => $movements,
+            'movements' => StockMovementResource::collection($movements),
             'products' => $products,
             'types' => $types,
             'shops' => $shops,
@@ -63,10 +64,12 @@ class StockMovementController extends Controller
 
     public function store(StoreStockMovementRequest $request): RedirectResponse
     {
+        $quantity = StockMovementType::getQuantity($request->type, $request->quantity);
+
         StockMovement::create([
             ...$request->validated(),
             'user_id' => $request->user()->id,
-            'quantity' => 1,
+            'quantity' => $quantity,
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Stock movement recorded.')]);
@@ -76,7 +79,12 @@ class StockMovementController extends Controller
 
     public function update(UpdateStockMovementRequest $request, StockMovement $stockMovement): RedirectResponse
     {
-        $stockMovement->update($request->validated());
+        $quantity = StockMovementType::getQuantity($request->type, $request->quantity);
+
+        $stockMovement->update([
+            ...$request->validated(),
+            'quantity' => $quantity,
+        ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Stock movement updated.')]);
 

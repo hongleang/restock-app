@@ -59,7 +59,7 @@ class User extends Authenticatable
     public function name(): Attribute
     {
         return Attribute::make(
-            get: fn (array $value, array $attributes) => ucfirst($attributes['first_name']).' '.ucfirst($attributes['last_name']),
+            get: fn (mixed $value, array $attributes) => ucfirst($attributes['first_name']).' '.ucfirst($attributes['last_name']),
         );
     }
 }

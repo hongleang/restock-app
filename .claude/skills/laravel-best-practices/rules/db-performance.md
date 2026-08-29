@@ -182,7 +182,7 @@ Correct:
 ```php
 // Controller
 $users = User::with('profile')->get();
-return view('users.index', compact('users'));
+return view('products.index', compact('users'));
 ```
 
 ```blade

@@ -23,7 +23,7 @@ Automatic naming and referential integrity.
 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
 // Non-standard names
-$table->foreignId('author_id')->constrained('users');
+$table->foreignId('author_id')->constrained('products');
 ```
 
 ## Never Modify Deployed Migrations

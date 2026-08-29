@@ -29,6 +29,7 @@ class StoreStockMovementRequest extends FormRequest
                 'required',
                 Rule::exists('products', 'id')->whereIn('shop_id', $shopIds),
             ],
+            'quantity' => ['required', 'integer'],
             'type' => ['required', Rule::enum(StockMovementType::class)],
             'note' => ['nullable', 'string', 'max:1000'],
         ];

@@ -9,7 +9,7 @@ test('guests are redirected to the login page', function () {
     $this->get(route('suppliers.index'))->assertRedirect(route('login'));
 });
 
-test('users without a shop cannot view suppliers', function () {
+test('products without a shop cannot view suppliers', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -17,7 +17,7 @@ test('users without a shop cannot view suppliers', function () {
         ->assertForbidden();
 });
 
-test('suppliers index only shows the authenticated users own suppliers', function () {
+test('suppliers index only shows the authenticated products own suppliers', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $supplier = Supplier::factory()->create(['shop_id' => $shop->id, 'first_name' => 'Own']);
@@ -36,7 +36,7 @@ test('suppliers index only shows the authenticated users own suppliers', functio
         );
 });
 
-test('a supplier can be created for the users own shop', function () {
+test('a supplier can be created for the products own shop', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
 
@@ -60,7 +60,7 @@ test('a supplier can be created for the users own shop', function () {
     ]);
 });
 
-test('a supplier cannot be created for another users shop', function () {
+test('a supplier cannot be created for another products shop', function () {
     $owner = User::factory()->create();
     Shop::factory()->create(['user_id' => $owner->id]);
 
@@ -119,7 +119,7 @@ test('a supplier owner can update their supplier', function () {
     expect($supplier->fresh()->first_name)->toBe('New');
 });
 
-test('a user cannot update another users supplier', function () {
+test('a user cannot update another products supplier', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $supplier = Supplier::factory()->create(['shop_id' => $shop->id, 'first_name' => 'Original']);
@@ -153,7 +153,7 @@ test('a supplier owner can delete their supplier', function () {
     $this->assertModelMissing($supplier);
 });
 
-test('a user cannot delete another users supplier', function () {
+test('a user cannot delete another products supplier', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $supplier = Supplier::factory()->create(['shop_id' => $shop->id]);
@@ -201,7 +201,7 @@ test('suppliers can be filtered by shop', function () {
     Supplier::factory()->create(['shop_id' => $shopB->id]);
 
     $this->actingAs($owner)
-        ->get(route('suppliers.index', ['shop_id' => $shopA->id]))
+        ->get(route('suppliers.index', ['shop' => $shopA->id]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('suppliers.data', 1)
             ->where('suppliers.data.0.id', $match->id)
@@ -217,6 +217,6 @@ test('suppliers are paginated', function () {
         ->get(route('suppliers.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('suppliers.data', 15)
-            ->where('suppliers.next_page_url', fn ($url) => $url !== null)
+            ->where('suppliers.links.next', fn ($url) => $url !== null)
         );
 });

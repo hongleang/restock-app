@@ -40,10 +40,11 @@ export type StockMovement = {
     quantity: number;
     user_id: number | null;
     type: StockMovementType;
+    type_label: string;
     note: string | null;
     created_at: string;
     product?: Pick<Product, 'id' | 'name' | 'shop_id'>;
-    user?: { id: number; first_name: string; last_name: string } | null;
+    user?: { id: number; first_name: string; last_name: string, name: string|null } | null;
 };
 
 export type StockMovementTypeOption = {

@@ -111,12 +111,12 @@ import { Link } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
 
 function handleClick() {
-    router.visit('/users')
+    router.visit('/products')
 }
 
 // Or with options
 function createUser() {
-    router.visit('/users', {
+    router.visit('/products', {
         method: 'post',
         data: { name: 'John' },
         onSuccess: () => console.log('Done'),

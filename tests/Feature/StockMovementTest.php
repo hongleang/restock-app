@@ -12,7 +12,7 @@ test('guests are redirected to the login page', function () {
     $this->get(route('stock-movements.index'))->assertRedirect(route('login'));
 });
 
-test('users without a shop cannot view stock movements', function () {
+test('products without a shop cannot view stock movements', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -20,7 +20,7 @@ test('users without a shop cannot view stock movements', function () {
         ->assertForbidden();
 });
 
-test('stock movements index only shows movements for the authenticated users own products', function () {
+test('stock movements index only shows movements for the authenticated products own products', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -49,7 +49,7 @@ test('stock movements index only shows movements for the authenticated users own
         );
 });
 
-test('a stock movement can be recorded for the users own product', function () {
+test('a stock movement can be recorded for the products own product', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -58,6 +58,7 @@ test('a stock movement can be recorded for the users own product', function () {
         'product_id' => $product->id,
         'type' => StockMovementType::Restock->value,
         'note' => 'Received shipment from supplier',
+        'quantity' => 10,
     ]);
 
     $response
@@ -71,6 +72,84 @@ test('a stock movement can be recorded for the users own product', function () {
     ]);
 });
 
+test('record a restock stock movement will have positive quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+
+    $response = $this->actingAs($owner)->post(route('stock-movements.store'), [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Restock->value,
+        'note' => 'Received shipment from supplier',
+        'quantity' => -10,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('stock-movements.index'));
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Restock->value,
+        'quantity' => 10,
+    ]);
+});
+
+test('record a sale stock movement will have negative quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+
+    $response = $this->actingAs($owner)->post(route('stock-movements.store'), [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Sale->value,
+        'note' => 'Received shipment from supplier',
+        'quantity' => 10,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('stock-movements.index'));
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Sale->value,
+        'quantity' => -10,
+    ]);
+});
+
+test('record a adjustment stock movement will have given sign quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+
+    $this->actingAs($owner)->post(route('stock-movements.store'), [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'note' => 'Received shipment from supplier',
+        'quantity' => -10,
+    ]);
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'quantity' => -10,
+    ]);
+
+    $this->actingAs($owner)->post(route('stock-movements.store'), [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'note' => 'Received shipment from supplier',
+        'quantity' => 10,
+    ]);
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'quantity' => 10,
+    ]);
+});
+
 test('the acting user is recorded as the mover, regardless of input', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
@@ -81,6 +160,7 @@ test('the acting user is recorded as the mover, regardless of input', function (
         'product_id' => $product->id,
         'user_id' => $impersonated->id,
         'type' => StockMovementType::Sale->value,
+        'quantity' => 10
     ]);
 
     $movement = StockMovement::query()->latest()->first();
@@ -88,7 +168,7 @@ test('the acting user is recorded as the mover, regardless of input', function (
     expect($movement->user_id)->toBe($owner->id);
 });
 
-test('a stock movement cannot be recorded for a product outside the users shops', function () {
+test('a stock movement cannot be recorded for a product outside the products shops', function () {
     $owner = User::factory()->create();
     Shop::factory()->create(['user_id' => $owner->id]);
 
@@ -119,7 +199,7 @@ test('the type must be a valid stock movement type', function () {
         ->assertSessionHasErrors('type');
 });
 
-test('a movement owner can update the type and note', function () {
+test('a movement owner can update stock movement', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -133,6 +213,7 @@ test('a movement owner can update the type and note', function () {
     $response = $this->actingAs($owner)->put(route('stock-movements.update', $movement), [
         'type' => StockMovementType::Adjustment->value,
         'note' => 'Corrected note',
+        'quantity' => 10,
     ]);
 
     $response
@@ -142,6 +223,99 @@ test('a movement owner can update the type and note', function () {
     $movement->refresh();
     expect($movement->type)->toBe(StockMovementType::Adjustment);
     expect($movement->note)->toBe('Corrected note');
+    expect($movement->quantity)->toBe(10);
+});
+
+test('update a restock stock movement will have positive quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    $movement = StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+        'note' => 'Original note',
+    ]);
+
+    $response = $this->actingAs($owner)->put(route('stock-movements.update', $movement), [
+        'type' => StockMovementType::Restock->value,
+        'note' => 'Corrected note',
+        'quantity' => -10,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('stock-movements.index'));
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Restock->value,
+        'quantity' => 10,
+    ]);
+});
+
+test('update a sale stock movement will have negative quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    $movement = StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+        'note' => 'Original note',
+    ]);
+
+    $response = $this->actingAs($owner)->put(route('stock-movements.update', $movement), [
+        'type' => StockMovementType::Sale->value,
+        'note' => 'Corrected note',
+        'quantity' => 10,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('stock-movements.index'));
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Sale->value,
+        'quantity' => -10,
+    ]);
+});
+
+test('update an adjustment stock movement will have given sign quantity', function () {
+    $owner = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $owner->id]);
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+    $movement = StockMovement::factory()->create([
+        'product_id' => $product->id,
+        'user_id' => $owner->id,
+        'type' => StockMovementType::Sale,
+        'note' => 'Original note',
+    ]);
+
+    $this->actingAs($owner)->put(route('stock-movements.update', $movement), [
+        'type' => StockMovementType::Adjustment->value,
+        'note' => 'Corrected note',
+        'quantity' => -10,
+    ]);
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'quantity' => -10,
+    ]);
+
+    $this->actingAs($owner)->put(route('stock-movements.update', $movement), [
+        'type' => StockMovementType::Adjustment->value,
+        'note' => 'Corrected note',
+        'quantity' => 10,
+    ]);
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => StockMovementType::Adjustment->value,
+        'quantity' => 10,
+    ]);
 });
 
 test('updating a movement cannot reassign it to a different product', function () {
@@ -163,7 +337,7 @@ test('updating a movement cannot reassign it to a different product', function (
     expect($movement->fresh()->product_id)->toBe($product->id);
 });
 
-test('a user cannot update another users stock movement', function () {
+test('a user cannot update another products stock movement', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -204,7 +378,7 @@ test('a movement owner can delete their stock movement', function () {
     $this->assertModelMissing($movement);
 });
 
-test('a user cannot delete another users stock movement', function () {
+test('a user cannot delete another products stock movement', function () {
     $owner = User::factory()->create();
     $shop = Shop::factory()->create(['user_id' => $owner->id]);
     $product = Product::factory()->create(['shop_id' => $shop->id]);
@@ -327,7 +501,7 @@ test('movements are paginated', function () {
         ->get(route('stock-movements.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('movements.data', 15)
-            ->where('movements.next_page_url', fn ($url) => $url !== null)
+            ->where('movements.links.next', fn ($url) => $url !== null)
         );
 });
 
@@ -372,7 +546,7 @@ test('a csv of stock movements can be imported', function () {
     ]);
 });
 
-test('csv import is scoped to the selected shop and rejects another users shop', function () {
+test('csv import is scoped to the selected shop and rejects another products shop', function () {
     $owner = User::factory()->create();
     Shop::factory()->create(['user_id' => $owner->id]);
 

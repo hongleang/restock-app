@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
+use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
@@ -21,20 +22,14 @@ class ProductController extends Controller
         $shopIds = $shops->pluck('id');
 
         $search = trim((string) $request->string('search'));
-        $shopFilter = $request->integer('shop_id') ?: null;
+        $shopFilter = $request->integer('shop') ?: null;
         $category = trim((string) $request->string('category'));
-        $supplierFilter = $request->integer('supplier_id') ?: null;
+        $supplierFilter = $request->integer('supplier') ?: null;
         $lowStock = $request->boolean('low_stock');
 
         $products = Product::query()
             ->whereIn('shop_id', $shopIds)
-            ->when($search !== '', function ($query) use ($search) {
-                $term = '%'.addcslashes($search, '%_').'%';
-
-                $query->where(fn ($query) => $query
-                    ->where('name', 'like', $term)
-                    ->orWhere('sku', 'like', $term));
-            })
+            ->searchBy($search, ['name', 'sku'])
             ->when($shopFilter, fn ($query, $value) => $query->where('shop_id', $value))
             ->when($category !== '', fn ($query) => $query->where('category', $category))
             ->when($supplierFilter, fn ($query, $value) => $query->where('supplier_id', $value))
@@ -55,7 +50,7 @@ class ProductController extends Controller
             ->pluck('category');
 
         return Inertia::render('products/Index', [
-            'products' => $products,
+            'products' => ProductResource::collection($products),
             'shops' => $shops,
             'suppliers' => $suppliers,
             'categories' => $categories,

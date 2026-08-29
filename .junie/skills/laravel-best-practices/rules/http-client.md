@@ -109,12 +109,12 @@ Correct:
 use Illuminate\Http\Client\Pool;
 
 $responses = Http::pool(fn (Pool $pool) => [
-    $pool->as('users')->get('https://api.example.com/users'),
+    $pool->as('products')->get('https://api.example.com/users'),
     $pool->as('posts')->get('https://api.example.com/posts'),
     $pool->as('comments')->get('https://api.example.com/comments'),
 ]);
 
-$users = $responses['users']->json();
+$users = $responses['products']->json();
 $posts = $responses['posts']->json();
 ```
 
@@ -136,7 +136,7 @@ it('syncs user from API', function () {
     Http::preventStrayRequests();
 
     Http::fake([
-        'api.example.com/users/1' => Http::response([
+        'api.example.com/products/1' => Http::response([
             'name' => 'John Doe',
             'email' => 'john@example.com',
         ]),

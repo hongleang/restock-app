@@ -9,7 +9,7 @@ public function scopeWithLastLoginAt($query): void
 {
     $query->addSelect([
         'last_login_at' => Login::select('created_at')
-            ->whereColumn('user_id', 'users.id')
+            ->whereColumn('user_id', 'products.id')
             ->latest()
             ->take(1),
     ])->withCasts(['last_login_at' => 'datetime']);
@@ -30,7 +30,7 @@ public function scopeWithLastLogin($query): void
 {
     $query->addSelect([
         'last_login_id' => Login::select('id')
-            ->whereColumn('user_id', 'users.id')
+            ->whereColumn('user_id', 'products.id')
             ->latest()
             ->take(1),
     ])->with('lastLogin');
@@ -98,7 +98,7 @@ When sorting by a value from a has-many relationship, avoid joins (they duplicat
 public function scopeOrderByLastLogin($query): void
 {
     $query->orderByDesc(Login::select('created_at')
-        ->whereColumn('user_id', 'users.id')
+        ->whereColumn('user_id', 'products.id')
         ->latest()
         ->take(1)
     );

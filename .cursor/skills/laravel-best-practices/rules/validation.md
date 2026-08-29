@@ -29,10 +29,10 @@ Array syntax is more readable and composes cleanly with `Rule::` objects. Prefer
 
 ```php
 // Preferred for new code
-'email' => ['required', 'email', Rule::unique('users')],
+'email' => ['required', 'email', Rule::unique('products')],
 
 // Follow existing convention if the project uses string notation
-'email' => 'required|email|unique:users',
+'email' => 'required|email|unique:products',
 ```
 
 ## Always Use `validated()`

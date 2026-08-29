@@ -21,4 +21,13 @@ enum StockMovementType: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    public static function getQuantity(string $type, int $quantity): int
+    {
+        return match ($type) {
+            self::Sale->value => abs($quantity) * -1,
+            self::Restock->value => abs($quantity),
+            self::Adjustment->value => $quantity,
+        };
+    }
 }
