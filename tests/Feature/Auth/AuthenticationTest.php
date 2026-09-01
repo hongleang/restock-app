@@ -11,7 +11,7 @@ it('renders the login screen', function () {
 });
 
 it('authenticates a user via the login screen', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['password' => 'password']);
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
