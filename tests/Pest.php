@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Product;
+use App\Models\Shop;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +47,28 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Create a user who owns a shop.
+ *
+ * @return array{0: User, 1: Shop}
+ */
+function createUserWithShop(): array
 {
-    // ..
+    $user = User::factory()->create();
+    $shop = Shop::factory()->create(['user_id' => $user->id]);
+
+    return [$user, $shop];
+}
+
+/**
+ * Create a user who owns a shop containing one product.
+ *
+ * @return array{0: User, 1: Shop, 2: Product}
+ */
+function createUserWithProduct(): array
+{
+    [$user, $shop] = createUserWithShop();
+    $product = Product::factory()->create(['shop_id' => $shop->id]);
+
+    return [$user, $shop, $product];
 }

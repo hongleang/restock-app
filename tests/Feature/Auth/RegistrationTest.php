@@ -6,13 +6,13 @@ beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::registration());
 });
 
-test('registration screen can be rendered', function () {
+it('renders the registration screen', function () {
     $response = $this->get(route('register'));
 
     $response->assertOk();
 });
 
-test('new products can register', function () {
+it('registers a new user', function () {
     $response = $this->post(route('register.store'), [
         'first_name' => 'John',
         'last_name' => 'John',

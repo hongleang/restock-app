@@ -4,13 +4,13 @@ use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
-test('login screen can be rendered', function () {
+it('renders the login screen', function () {
     $response = $this->get(route('login'));
 
     $response->assertOk();
 });
 
-test('products can authenticate using the login screen', function () {
+it('authenticates a user via the login screen', function () {
     $user = User::factory()->create();
 
     $response = $this->post(route('login.store'), [
@@ -22,7 +22,7 @@ test('products can authenticate using the login screen', function () {
     $response->assertRedirect(route('dashboard', absolute: false));
 });
 
-test('products with two factor enabled are redirected to two factor challenge', function () {
+it('redirects a user with two-factor enabled to the two-factor challenge', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 
     Features::twoFactorAuthentication([
@@ -42,7 +42,7 @@ test('products with two factor enabled are redirected to two factor challenge', 
     $this->assertGuest();
 });
 
-test('products can not authenticate with invalid password', function () {
+it('rejects authentication with an invalid password', function () {
     $user = User::factory()->create();
 
     $this->post(route('login.store'), [
@@ -53,7 +53,7 @@ test('products can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
-test('products can logout', function () {
+it('logs a user out', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->post(route('logout'));
@@ -63,7 +63,7 @@ test('products can logout', function () {
     $this->assertGuest();
 });
 
-test('products are rate limited', function () {
+it('rate limits repeated failed login attempts', function () {
     $user = User::factory()->create();
 
     RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
