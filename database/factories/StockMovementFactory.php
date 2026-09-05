@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\StockMovementType;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
@@ -20,5 +21,15 @@ class StockMovementFactory extends Factory
             'product_id' => Product::factory(),
             'user_id' => User::factory(),
         ];
+    }
+
+    public function configure(): self
+    {
+        return $this->afterCreating(function (StockMovement $movement) {
+            $quantity = StockMovementType::getQuantity($movement->type->value, $movement->quantity);
+            $movement->update([
+                'quantity' => $quantity,
+            ]);
+        });
     }
 }
