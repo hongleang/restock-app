@@ -49,6 +49,9 @@ class ForecastService
         return $daysUntilStockout <= $product->supplier->lead_time_days;
     }
 
+    /*
+    * returns a collection of products that need reorder
+    */
     public function reorderList(int $shopId): Collection
     {
         $shop = Shop::find($shopId);
@@ -63,7 +66,7 @@ class ForecastService
             ->map(function ($product) {
                 return [
                     'product' => $product,
-                    'days_until_stockout' => $this->daysUntilStockout($product),
+                    'days_until_stockout' => $this->daysUntilStockout($product)
                 ];
             })
             ->filter(fn ($item) => $this->needsReorder($item['product']))
